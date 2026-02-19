@@ -1,0 +1,76 @@
+# get the raw counts 
+# load them in R 
+counts <- read.delim("counts.txt", row.names=1)
+
+# grouping/factors 
+group <- factor(c("Control","Control","Treated","Treated"))           
+# sample 1= Control, sample 2 = Control, sample 3 = Treated.......             no. of groups= samples and match the orders
+
+# create teh dge list 
+y <- DGEList(counts=counts, group=group)
+# creates a container that stores: Counts, Group labels, Library sizes, Will later store normalization and dispersion
+
+# filtering genes will low counts
+keep <- filterByExpr(y)
+y <- y[keep,]
+
+# normalization 
+y <- calcNormFactors(y)
+
+
+# design matrix 
+design <- model.matrix(~ group)
+design
+
+# estimate dispersion
+y <- estimateDisp(y, design)
+# Measures how much variation exists between replicates 
+
+# voom
+v <- voom(y, design)
+# Converts counts to log2 scale. Estimates mean-variance trend. Assigns weights. Now data behaves nicely for linear modeling.
+
+
+# linear fit model
+fit <- lmFit(v, design)
+# calculates: Difference, Variance, t-statistic, p-value, log FC
+
+
+# empirical bayes 
+fit <- eBayes(fit)
+
+# results 
+results <- topTable(fit, coef=2)
+
+
+# visualizations
+
+# mds plot:  Do replicates cluster together? Are Control and Treated clearly separated?
+plotMDS(y)   or    plotMDS(v)
+
+# volcano plot:  Which genes are: Highly different? Highly significant?
+results <- topTable(fit, coef=2, number=Inf)
+
+plot(results$logFC,
+     -log10(results$adj.P.Val),
+     xlab="log2 Fold Change",
+     ylab="-log10 FDR")
+
+# heat map: How do top DE genes behave across all samples?
+topgenes <- rownames(results)[1:50]       # select top genes 
+heatdata <- v$E[topgenes, ]               # extract exp
+heatmap(heatdata)
+
+# barcode plot: Are genes from a pathway mostly up or down?
+barcodeplot(fit$t[,2],
+            index=geneSet)
+
+
+
+
+
+
+
+
+
+
